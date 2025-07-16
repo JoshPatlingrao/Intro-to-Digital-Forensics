@@ -43,3 +43,220 @@ Digital Forensics for SOC Analysts
 - Proactive Security Posture: Digital forensics transforms from a reactive function into a proactive capability that enhances overall SOC effectiveness and organizational resilience.
 
 ## Windows Forensic Overview
+NTFS (New Technology File System)
+- Introduced with Windows NT 3.1 in 1993 as a proprietary file system and is now the default for modern Windows OS versions
+- Replaced the older FAT (File Allocation Table) system, overcoming many of its limitations
+- Includes features like journaling and error recovery to enhance data integrity.
+- Designed to manage large volumes efficiently with faster access and better disk space utilization.
+- Supports file-level permissions and encryption to control access and protect data.
+- Capable of handling large files and partitions, making it suitable for both desktop and enterprise environments.
+
+NTFS Forensic Artifacts
+- File Metadata
+  - Stores creation, modification, access times, and file attributes (e.g., read-only, hidden).
+  - Helps establish user activity timelines.
+- Master File Table (MFT)
+  - Central structure storing metadata for all files and folders.
+  - Deleted files’ MFT entries may still contain recoverable data.
+- File Slack & Unallocated Space
+  - May hold remnants of deleted files or leftover data fragments.
+  - Useful for data recovery during forensic analysis.
+- File Signatures
+  - Identifies file types via headers, even if extensions are altered.
+  - Aids in reconstructing hidden or renamed files.
+- USN Journal
+  - Logs changes to files and directories (creations, deletions, modifications).
+  - Supports timeline reconstruction and change tracking.
+- LNK Files (Shortcuts)
+  - Contain paths and metadata of linked files.
+  - Reveal accessed or executed programs/files.
+- Prefetch Files
+  - Log information about program executions for performance optimization.
+  - Help identify what apps ran and when.
+- Registry Hives
+  - Hold critical system and user configuration data.
+  - Forensic clues often left by malware or unauthorized changes.
+- Shellbags
+  - Record folder view settings and accessed directory paths.
+  - Show which folders were browsed by users.
+- Thumbnail Cache
+  - Stores previews of image/doc files.
+  - Reveal recently viewed content even if originals are deleted.
+- Recycle Bin
+  - Temporarily stores deleted files.
+  - Useful for recovering user-deleted content and tracking deletions.
+- Alternate Data Streams (ADS)
+  - Hidden data streams attached to files.
+  - Often abused by attackers to hide malicious data.
+- Volume Shadow Copies
+  - Backup snapshots of the file system.
+  - Aid in historical analysis and recovery of changed/deleted files.
+- Security Descriptors and ACLs
+  - Define user permissions on files/folders.
+  - Help identify unauthorized access or privilege misuse.
+
+Windows Event Logs
+- Core component of Windows OS used to log events from the system, applications, services, and ETW (Event Tracing for Windows) providers
+- Essential for tracking system activity and errors.
+- Logs application errors, security incidents, system diagnostics, and more. Useful for real-time monitoring and historical analysis.
+  - Also capture a wide range of adversarial tactics such as: initial compromise (e.g., malware, exploits), credential access, privilege escalation and lateral movement (often using built-in Windows tools)
+  - Specific logs provide valuable insight into system behavior and attacker actions.
+  - Logs can be accessed directly for offline or forensic analysis.
+
+Windows Execution Artifacts
+- Traces left behind when programs run on a Windows system
+- Helps reconstruct timelines of program execution.
+- Allows identification of malicious activity and unauthorized software.
+- Aids in understanding user behavior and system interactions.
+
+Common Windows Execution Artifacts
+- Prefetch Files
+  - Store metadata on executed applications (file paths, execution count, timestamps).
+  - Reveal which programs ran and in what order.
+- Shimcache (AppCompatCache)
+  - Logs executed programs for compatibility.
+  - Includes file paths, timestamps, and execution flags.
+- Amcache
+  - Database of executables and installed apps (since Windows 8).
+  - Records file metadata, digital signatures, and execution timestamps.
+- UserAssist
+  - Registry key tracking user-executed programs.
+  - Records app names, execution counts, and timestamps.
+- RunMRU Lists
+  - Registry-based list of most recently run programs (e.g., from Run dialog).
+  - Indicates what was executed and when.
+- Jump Lists
+  - Store recently accessed files/tasks for specific apps.
+  - Reveal user activity and frequently used files.
+- Shortcut (LNK) Files
+  - Contain paths, timestamps, and user interaction metadata.
+  - Show context of program or file execution.
+- Recent Items
+  - Folder storing shortcuts to recently opened files.
+  - Useful for tracking recent user activity.
+- Windows Event Logs
+  - Include Security, System, and Application logs.
+  - Record process creation, termination, crashes, and other events.
+
+Windows Persistence Artifacts
+- Windows persistence uses techniques to maintain long-term access to a compromised system after the initial intrusion.
+  - Allows attackers to survive reboots and avoid detection.
+  - Ensures they can continue malicious activities over time.
+  - Helps sustain remote control or ongoing data access/exfiltration.
+
+Windows Registry
+- A centralized database in Windows that stores critical system and user configuration settings.
+  - Stores user account security configurations via the Security Accounts Manager (SAM).
+  - Controls startup behavior and system services.
+  - Modifies system behavior based on registry keys and values.
+- Covers settings for: Devices, Services, Security policies, Installed applications, User profiles
+- Why?
+  - High-value target for persistence and privilege escalation.
+  - Adversaries modify autorun keys to launch malware at system startup.
+  - Registry changes can be stealthy and difficult to detect.
+- Defense
+  - Regularly inspect Autorun Keys
+    - Run/RunOnce Keys
+      - HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
+      - HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunOnce
+      - HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+      - HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce
+      - HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\
+    - Keys used by WinLogon Process
+      - HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+      - HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Shell
+    - Startup Keys
+      - HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders
+      - HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
+      - HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders
+      - HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\User
+  - Monitor unauthorized modifications or suspicious entries.
+  - Use tools like Sysinternals Autoruns or registry auditing for analysis.
+
+Schtasks
+- Built-in Windows feature that allows automation of programs or commands.
+- Used for:
+  - Running scripts or updates at specific times
+  - Performing system maintenance
+  - Automating repetitive processes
+- Where?
+  - Scheduled tasks are located in: C:\Windows\System32\Tasks
+  - Each task is saved as an XML file that contains:
+    - Creator/user
+    - Trigger details (when the task runs)
+    - Path to the executable/command
+- Why it Matters?
+  - Scheduled tasks can be used to:
+    - Maintain persistence
+    - Re-execute malware on reboot or at intervals
+    - Evade detection using legitimate system features
+- How to Investigate?
+  - Examine XML content to check for:
+    - Unusual or unknown creators
+    - Suspicious paths or commands
+    - Irregular or high-frequency triggers
+
+Windows Services
+- What is it?
+  - Background processes that run without user interaction.
+  - Critical for system functionality (e.g., networking, updates, security).
+  - Automatically start on boot, triggered, or manual.
+- Why it Matters?
+  - Allows attackers to:
+    - Maintain persistence
+    - Automatically launch malware or backdoors
+    - Operate stealthily under trusted system behavior
+- Location
+  - Malicious services are often configured in: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services
+  - This registry path stores: service names, start type (auto/manual), executable paths and configs
+- Look For
+  - Unexpected or suspicious service names
+  - Executables pointing to non-standard directories
+  - Services configured to auto-start with unknown binaries
+
+Web Browser Forensics
+- A forensic discipline focused on analyzing browser artifacts to understand user activity, online behavior, and potential malicious interactions.
+- Look For:
+  - Browsing History: URLs, page titles, timestamps, and visit frequency.
+  - Cookies: Session data, preferences, and authentication tokens.
+  - Cache: Stored web content (pages, images) that may persist even after history is cleared.
+  - Bookmarks/Favorites: Saved links showing user interests or frequently accessed sites.
+  - Download History: File names, timestamps, and source URLs.
+  - Autofill Data: Auto-entered form data: names, addresses, emails, passwords.
+  - Search History: Search engine queries and associated timestamps.
+  - Session Data: Information about current and recent browsing sessions, tabs, and windows.
+  - Typed URLs: Manually entered web addresses.
+  - Form Data: User-entered data in web forms (credentials, queries).
+  - Saved Passwords: Stored login credentials for websites.
+  - Web Storage: Data stored locally by websites (e.g., HTML5 local storage).
+  - Favicons: Website icons that indicate visited domains.
+  - Tab Recovery Data: Restorable session/tab data after a crash.
+  - Extensions and Add-ons: Installed browser tools and their configurations, which may be legitimate or malicious.
+
+SRUM (System Resource Usage Monitor)
+- What is it?
+  - Introduced in Windows 8+.
+  - Logs application and resource usage over time.
+  - Stores data in a SQLite database file: sru.db located at: C:\Windows\System32\sru
+- Look For
+  - Application Profiling
+    - Logs executed applications and processes.
+    - Includes executable names, paths, timestamps, and usage data.
+    - Useful for identifying malicious or unauthorized software.
+  - Resource Consumption
+    - Tracks CPU, memory, and network usage per process.
+    - Helps detect unusual resource spikes or performance anomalies.
+  - Timeline Reconstruction
+    - Allows creation of detailed timelines based on app usage and system activity.
+    - Critical for tracing events, behaviors, and attack sequences.
+  - User & System Context
+    - Includes user identifiers, linking activities to specific accounts.
+    - Helps attribute actions to legitimate users or intruders.
+  - Malware Detection
+    - Detects signs of malicious behavior:
+      - Unusual app usage
+      - High resource consumption
+      - Suspicious install patterns
+  - Incident Response
+    - Offers rapid access to recent activity logs during an investigation.
+    - Supports quick threat identification and containment decisions.
