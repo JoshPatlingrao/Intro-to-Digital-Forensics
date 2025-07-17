@@ -309,6 +309,14 @@ Data Volatility
 - Memory analysis can reveal live malware, processes, network activity, and more.
   - Can find many RAM or memory-based attacks
 
+Non-Volatile Data
+- Stored on HDD/SSD, and presists through shutdowns
+- Includes
+  - Registry
+  - Windows Event Log
+  - System-related artifacts (e.g., Prefetch, Amcache)
+  - Application-specific artifacts (e.g., IIS logs, Browser history)
+
 Memory Acquisition Tools
 - FTK Imager (https://www.exterro.com/ftk-imager)
   - Commonly used for memory and disk imaging
@@ -332,3 +340,70 @@ Memory Acquisition Tools
   - Designed for Linux systems
   - Transparent and stealthy, useful for avoiding anti-forensics detection
 
+Rapid Triage
+- A targeted forensic approach focused on quickly collecting high-value data from potentially compromised systems.
+  - Prioritizes systems likely affected by an incident, as attackers may implement anti-forensic measures and erase data and evidence
+- The goal is to centralize and streamline analysis to identify systems with the most evidentiary value, enabling faster and deeper forensic investigation.
+  - Centralizes key forensic artifacts for efficient indexing and searching.
+
+Rapid Triage Tool - KAPE (Kroll Artifact Parser and Extractor)
+- Developed by Kroll (formerly Magnet Forensics).
+- Parses and extracts forensic artifacts rapidly from Windows systems.
+  - Speeds up evidence collection from large data sets.
+- Works well with mounted images (e.g., using Arsenal Image Mounter).
+- Supports both collection (Targets) and processing (Modules) phases.
+- Highly customizable and effective in incident response and deep forensics.
+  - Extracts critical forensic artifacts (e.g., event logs, browser data, registry keys).
+  - Offers automation, efficiency, and broad artifact coverage.
+
+<img width="1579" height="419" alt="image" src="https://github.com/user-attachments/assets/39ced873-2729-4ce9-b074-ff4303b390ed" />
+
+KAPE Operation
+- Operates based on the principles of Targets and Modules
+  - Targets: specific artifacts KAPE aims to extract from an image or system and duplicated in an output directory
+    - Has the '.tkape' extension on output files
+  - Compound Targets: amalgamations of multiple targets, gathering multiple files defined across various targets in a single run
+- It duplicates specific forensic-related files to a designated output directory, all while maintaining the metadata of each file
+
+EDR (Endpoint Detection and Response)
+- Powerful tools used by incident response analysts to remotely detect, investigate, and collect digital evidence from endpoints across a network
+- Significantly accelerates investigation and response efforts in large environments.
+
+Rapid Triage Tool - Velociraptor
+- Open-source endpoint visibility and response tool.
+- Uses Velociraptor Query Language (VQL) to query and collect host data.
+- Supports running Hunts across endpoints to gather targeted artifacts.
+- Often uses Windows.KapeFiles.Targets artifact to mimic KAPE logic.
+- KAPE is not open-source, but its collection logic is available via the KapeFiles project (YAML-based).
+  - Velociraptor leverages this logic to efficiently gather high-value forensic artifacts.
+- Enables rapid triage and large-scale evidence gathering.
+- Improves visibility across all systems.
+- Reduces time and resource cost during incident response.
+- Velociraptor adds flexibility and customization via open-source tooling.
+
+### Extracting Network Evidence
+- Foundational task for SOC analysts
+- Involves collecting and analyzing data from network traffic to identify malicious behavior, track threats, and support incident response.
+  - Packet Capture & Analysis
+    - Traffic capture offers a detailed snapshot of all data transmissions within a network.
+    - Tools: Wireshark, tcpdump
+    - Enables deep inspection of network conversations and protocol behavior.
+  - IDS/IPS Data
+    - IDS detects suspicious or known-malicious traffic patterns and generate alerts.
+    - IPS goes further by automatically blocking malicious activity.
+    - This data is crucial for real-time threat detection and validation.
+  - Flow Data (NetFlow/sFlow)
+    - Offers a high-level overview of traffic behavior and communication patterns between systems.
+    - Lacks payload detail but is excellent for:
+      - Identifying large data transfers
+      - Spotting unusual communication flows
+      - Detecting lateral movement
+  - Firewall Logs
+    - Modern firewalls do more than block/allow traffic:
+      - Identify applications
+      - Attribute traffic to specific users
+      - Detect and block advanced threats
+    - Firewall log analysis helps detect:
+      - Exploitation attempts
+      - Unauthorized access
+      - Malicious communications
