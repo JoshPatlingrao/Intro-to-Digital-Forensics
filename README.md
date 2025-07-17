@@ -407,3 +407,22 @@ Rapid Triage Tool - Velociraptor
       - Exploitation attempts
       - Unauthorized access
       - Malicious communications
+
+### Walkthrough
+Q1. Visit the URL "https://127.0.0.1:8889/app/index.html#/search/all" and log in using the credentials: admin/password. After logging in, click on the circular symbol adjacent to "Client ID". Subsequently, select the displayed "Client ID" and click on "Collected". Initiate a new collection and gather artifacts labeled as "Windows.KapeFiles.Targets" using the _SANS_Triage configuration. Lastly, examine the collected artifacts and enter the name of the scheduled task that begins with 'A' and concludes with 'g' as your answer.
+- RDP to the machine
+  - xfreerdp /u:Administrator /p:password /v:TARGET_IP /dynamic-resolution
+- Follow the instructions on the question.
+- Download the collected data, move it to desktop and extract all .json files there.
+- Open PowerShell and change directory to Desktop
+  - cd Desktop
+- Run this command to search for the scheduled task
+  - Get-Content "Windows.KapeFiles.Targets%2FUploads.json" | ConvertFrom-Json | Where-Object { $_.SourceFile -like "C:\Windows\System32\Tasks\A*g" }
+    - Get-Content ".\Windows.KapeFiles.Targets%2FUploads.json"
+      - We want to open the 'Windows.KapeFiles.Targets%2FUploads.json'
+      - Get-Content: retrieves the text inside the .json file
+    - ConvertFrom-Json
+      - Converts the raw JSON text into PowerShell objects, makes it easier to read
+    - Where-Object { $_.SourceFile -like "C:\Windows\System32\Tasks\A*g" }
+      - Filters the objects, returning only those where the SourceFile property matches the given pattern, a string that starts with 'A' and ends with 'g'
+- Answer is: AutorunsToWinEventLog
