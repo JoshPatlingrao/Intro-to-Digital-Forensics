@@ -425,4 +425,6 @@ Q1. Visit the URL "https://127.0.0.1:8889/app/index.html#/search/all" and log in
       - Converts the raw JSON text into PowerShell objects, makes it easier to read
     - Where-Object { $_.SourceFile -like "C:\Windows\System32\Tasks\A*g" }
       - Filters the objects, returning only those where the SourceFile property matches the given pattern, a string that starts with 'A' and ends with 'g'
+      - $_ .SourceFile: accesses only the .SourceFile property of the JSON object.
+      - -like: a PowerShell operator for wildcard pattern matching.
 - Answer is: AutorunsToWinEventLog
