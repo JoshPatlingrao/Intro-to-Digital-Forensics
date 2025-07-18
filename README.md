@@ -599,4 +599,41 @@ Q3. Examine the file "/home/htb-student/MemoryDumps/Win7-2515534d.vmem" with Vol
   - vol.py -f /home/htb-student/MemoryDumps/Win7-2515534d.vmem --profile=Win7SP1x64 ldrmodules | grep -i zlib1.dll -B 10
     - THis shows that taskhsvc.exe is the process that loaded the DLL along with its PID
 - Answer is: 3012
-Base : 0x000000006b2b0000
+
+## Disk Forensics
+Disk Forensics
+- Follows the order of volatility — disk data is analyzed after volatile memory.
+- Critical for uncovering subtle traces left by attackers.
+- Shifts focus from memory forensics to disk image examination and analysis.
+
+Disk Forensic Tools Features
+- File Structure Insight
+  - Navigate and explore disk's file hierarchy.
+  - Enables quick access to target files in known system locations.
+- Hex Viewer
+  - Allows low-level inspection of file contents.
+  - Essential for identifying customized malware or exploits.
+- Web Artifacts Analysis
+  - Extracts browser history, cookies, and cache.
+  - Helps reconstruct how a user accessed malicious websites.
+- Email Carving
+  - Retrieves deleted or hidden email data.
+  - Useful for insider threat or social engineering investigations.
+- Image Viewer
+  - Displays pictures stored on the system.
+  - Useful for compliance checks or deeper behavioral analysis.
+- Metadata Analysis
+  - Reveals creation dates, hashes, and disk location of files.
+  - Crucial for correlating events (e.g., app launches with malware alerts).
+
+Autopsy - Open-Source Forensic Suite
+- Built on The Sleuth Kit (TSK).
+- User-friendly interface.
+- Offers features similar to commercial tools:
+  - Timeline analysis
+  - Keyword searches
+  - Web/email artifact extraction
+  - Filtering based on known malicious file hashes
+
+## Rapid Triage Examination & Analysis Tools
+Tools List: https://ericzimmerman.github.io/#!index.md
