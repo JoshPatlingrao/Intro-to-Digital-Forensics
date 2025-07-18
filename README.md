@@ -428,3 +428,175 @@ Q1. Visit the URL "https://127.0.0.1:8889/app/index.html#/search/all" and log in
       - $_ .SourceFile: accesses only the .SourceFile property of the JSON object.
       - -like: a PowerShell operator for wildcard pattern matching.
 - Answer is: AutorunsToWinEventLog
+
+## Memory Forensics
+### Notes
+Memory Forensics Definition & Process
+- Memory Forensics: A.K.A. volatile memory analysis.
+  - Detects malicious processes running in memory.
+  - Helps uncover IoCs
+- A branch of digital forensics focused on analyzing a system’s RAM
+  - Memory forensics captures the live state of a system at a specific point in time.
+  - Also allows recovery of data that might otherwise be lost, such as encryption keys or active sessions.
+    - Can reconstruct malware behavior.
+
+Data Types in RAM
+- Network connections (active or recently closed)
+- File handles and open files
+- Open registry keys
+- Running processes
+- Loaded modules and device drivers
+- Command history and console sessions
+- Kernel-level data structures
+- User information and credentials
+- Malware artifacts (e.g., injected code, unpacked payloads)
+- System configuration settings
+- Process memory regions
+
+SANS 6-Step Method
+1. Process Identification and Verification
+- List all running processes on the system.
+- Verify process origins within the operating system.
+- Compare with legitimate system processes (e.g., using hash lookups or known-safe lists).
+- Identify anomalies, such as:
+  - Misspelled or misleading process names (e.g., expl0rer.exe instead of explorer.exe).
+  - Unexpected parent-child process relationships.
+2. Deep Dive into Process Components
+- Focus on Dynamic Link Libraries (DLLs) and open handles used by suspicious processes.
+- Steps include:
+  - Review DLLs loaded by suspicious processes.
+  - Look for unauthorized or uncommon DLLs.
+  - Check for DLL injection or DLL hijacking signs.
+3. Network Activity Analysis
+- Analyze network-related data stored in memory to identify communication patterns.
+- Actions:
+  - Review active and recent network connections.
+  - Document external IPs/domains contacted by processes.
+  - Determine if connections involve: C2 servers and/or data exfiltration attempts
+  - Assess:
+    - Whether the process should normally have network activity.
+    - The parent process and its legitimacy.
+4. Code Injection Detection
+- Look for memory manipulation techniques used by attackers.
+- Focus areas:
+  - Detect process hollowing, unmapped memory regions, or anomalous memory use.
+  - Flag processes exhibiting unexpected memory behavior or abnormal execution flow.
+5. Rootkit Discovery
+- Investigate signs of deep OS-level compromise.
+- Techniques include:
+  - Scanning for hidden drivers or stealthy system changes.
+  - Identifying privileged processes or kernel-level manipulations.
+  - Detecting components designed to evade traditional security tools.
+6. Extraction of Suspicious Elements
+- Isolate and preserve suspicious data for deeper analysis.
+- Steps:
+  - Dump suspect processes, DLLs, or drivers from memory.
+  - Securely store artifacts for analysis using tools like:
+    - Static malware analysis platforms
+    - Sandboxes
+    - Reverse engineering tools
+
+Volatility Framework
+- What is it? (https://www.volatilityfoundation.org/releases)
+  - Volatility is a leading open-source memory forensics tool, used to analyze RAM dumps (memory images).
+  - Built on Python, making it cross-platform compatible (can run on Windows, Linux, macOS).
+  - Designed to extract and analyze detailed memory artifacts using a wide variety of plugins.
+- Features
+  - Plugin-based architecture allows focused and modular analysis.
+  - Can analyze memory from multiple operating systems: Windows (XP through Server 2016), macOS, Linux distributions
+- Why Volatility?
+  - Open-source and widely supported by the forensics community.
+  - Offers deep visibility into memory — useful for detecting malware, suspicious processes, and system behavior.
+  - Supports automation and integration with custom analysis workflows via Python scripting.
+- Common Modules
+  - pslist: Lists the running processes.
+  - cmdline: Displays process command-line arguments
+  - netscan: Scans for network connections and open ports.
+  - malfind: Scans for potentially malicious code injected into processes.
+  - handles: Scans for open handles
+  - svcscan: Lists Windows services.
+  - dlllist: Lists loaded DLLs (Dynamic-link Libraries) in a process.
+  - hivelist: Lists the registry hives in memory.
+- Documentation
+  - Volatility v2: https://github.com/volatilityfoundation/volatility/wiki/Command-Reference
+  - Volatility v3: https://volatility3.readthedocs.io/en/latest/index.html
+  - Cheatsheet: https://blog.onfvp.com/post/volatility-cheatsheet/
+
+Volatility V2 Fundamentals
+- Identifying the Profile
+  - Profiles are essential, needed to interpret the memory data correctly
+  - Use the imageinfo plugin to get profile that mathes the OS of memory dump
+- Identifying Running Processes
+  - List running process via the pslist plugin.
+    - This is to confirm if the profile from rpevious step is valid
+    - Volatility may provide correct output even if entering a different profile
+- Identifying Network Artifacts
+  - The netscan plugin can be used to scan for network artifacts
+  - To find _TCPT_OBJECT structures using pool tag scanning, use the connscan command.
+    - Can find artifacts from previous connections that are terminated, in addition to the active ones.
+- Identifying Injected Code
+  - The malfind plugin is used to identify and extract injected code and malicious payloads from memory of a running process
+- Identifying Handles
+  - The handles plugin is used for analyzing the handles (file and object references) held by a specific process within a memory dump
+  - Understanding the handles associated with a process is important. It will reveal the resources and objects a process is interacting with
+- Identifying Windows Services
+  - The svcscan plugin is used for listing and analyzing Windows services running on a system within a memory dump
+- Identifying Loaded DLLs
+  - The dlllist plugin is used for listing the dynamic link libraries (DLLs) loaded into the address space of a specific process within a memory dump
+- Identifying Hives
+  - The hivelist plugin in Volatility is used for listing the hives (registry files) present in the memory dump of a Windows system
+
+Rootkit Analysis with Volatility v2
+- Understanding the EPROCESS Structure
+  - EPROCESS: a data structure in the Windows kernel that represents a process.
+  - Each running process in Windows has its own EPROCESS block in kernel memory
+  - EPROCESS analysis allows understanding of running processes on a system, identifying parent-child relationships and determining which processes were active at the time of the memory capture
+- FLINK and BLINK
+  - Doubly-linked List: a type of linked list where each node (record) contains two references or pointers
+    - Next Pointer: points to the next node in the list, allowing list transversal in a forward direction.
+    - Previous Pointer: points to the previous node in the list, allowing list transversal in a backward direction.
+  - In EPROCESS structure, the ActiveProcessLinks is a doubly-linked list which contains the flink field and the blink field
+    - flink: forward pointer, points to the ActiveProcessLinks list entry of the _next_ EPROCESS structure in the list of active processes
+    - link: backward pointer, points to the ActiveProcessLinks list entry of the _previous_ EPROCESS structure in the list of active processes.
+  - Used by the Windows kernel to quickly iterate through all running processes on the system.
+- Identifying Rootkit Signs
+  - DKOM (Direct Kernel Object Manipulation): a sophisticated technique used by rootkits and advanced malware to manipulate the Windows OS's kernel data structures to hide malicious processes, drivers, files, and other artifacts from detection by security tools and utilities running in userland (i.e., in user mode).
+    - Redirects the Flink and Blink pointers so tool can't detect the process that was a part of the EPROCESS
+  - The psscan plugin is used to enumerate running processes
+    - It scans the memory pool tags associated with each process's EPROCESS structure
+    - Can help identify processes that may have been hidden or unlinked by rootkits, as well as processes that have been terminated but have not been removed from memory yet
+
+Memory Analysis Using Strings
+- Strings often contain valuable information, such as text messages, file paths, IP addresses, and even passwords
+  - Windows: use the Strings tool from the Sysinternals suite
+  - Linux: use the strings command from Binutils
+- Identifying IPv4 Addresses
+  - strings /home/htb-student/MemoryDumps/MemDumpName.vmem | grep -E "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b"
+- Identifying Email Addresses
+  - strings /home/htb-student/MemoryDumps/MemDumpName.vmem | grep -oE "\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}\b"
+- Identifying Command Prompt or PowerShell Artifacts
+  - strings /home/htb-student/MemoryDumps/MemDumpName.vmem | grep -E "(cmd|powershell|bash)[^\s]+"
+
+### Walkthrough
+Q1. Examine the file "/home/htb-student/MemoryDumps/Win7-2515534d.vmem" with Volatility. Enter the parent process name for @WanaDecryptor (Pid 1060) as your answer. Answer format: _.exe
+- SSH to the machine
+- Look for the WanaDecryptor process with pslist
+  - vol.py -f /home/htb-student/MemoryDumps/Win7-2515534d.vmem --profile=Win7SP1x64 pslist | grep WanaDecryptor
+  - This should return it's PID and the parent process PID (PPID), which is 1792
+- Look for the specified PID - 1792
+  - vol.py -f /home/htb-student/MemoryDumps/Win7-2515534d.vmem --profile=Win7SP1x64 pslist | grep " 1792"
+  - This will show the parent process for WanaDecryptor
+- Answer is: tasksche.exe
+
+Q2. Examine the file "/home/htb-student/MemoryDumps/Win7-2515534d.vmem" with Volatility. tasksche.exe (Pid 1792) has multiple file handles open. Enter the name of the suspicious-looking file that ends with .WNCRYT as your answer. Answer format: _.WNCRYT
+- Run handles using the PID found on previous step
+  - vol.py -f /home/htb-student/MemoryDumps/Win7-2515534d.vmem --profile=Win7SP1x64 handles -p 1792 --object-type=File
+    - --object-type=File: will limit returned objects to 'File' types
+- Answer is: hibsys.WNCRYT
+
+Q3. Examine the file "/home/htb-student/MemoryDumps/Win7-2515534d.vmem" with Volatility. Enter the Pid of the process that loaded zlib1.dll as your answer.
+- Since dlllist would show a corrupted output and won't show the PID for process that loadedzlib1.dll, use ldrmodules instead
+  - vol.py -f /home/htb-student/MemoryDumps/Win7-2515534d.vmem --profile=Win7SP1x64 ldrmodules | grep -i zlib1.dll -B 10
+    - THis shows that taskhsvc.exe is the process that loaded the DLL along with its PID
+- Answer is: 3012
+Base : 0x000000006b2b0000
