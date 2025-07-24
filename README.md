@@ -757,3 +757,81 @@ Zone.Identifier Data in MFT File Record
 - Mark of the Web (MotW): differentiates files sourced from the internet or other potentially dubious sources from those originating from trusted or local contexts
   - Acts as a defense layer for apps
   - If an app opens a file with MotW, it will run a specific security measure based on MotW's presence
+    - E.g. Word's Protected View mode that isolates the document that may contain malicious macros from the system
+  - Can be used in forensics to analyze the file's download method
+
+Analyzing with Timeline Explorer
+- Timeline Explorer: a digital forensic tool developed by Eric Zimmerman which is used to assist forensic analysts and investigators in creating and analyzing timeline artifacts from various sources
+- Timeline artifacts can reconstruct events sequentially
+  - Can filter data based on date & time range, event types
+
+USN Journal
+- Update Sequence Number (USN): a change journal feature that meticulously logs alterations to files and directories on an NTFS volume
+  - Can monitor operations such as File Creation, Rename, Deletion, and Data Overwrite.
+- In Windows, USN Journal file is designated as $J
+- Output: C:\Users\johndoe\Desktop\forensic_data\kape_output\D\$Extend
+
+Analyzing the USN Journal Using MFTECmd
+- MFTECmd can also be instrumental in analyzing the USN Journal
+- Entries in the USN Journal often allude to modifications to files and directories that are documented in the MFT
+
+Windows Event Logs Investigation
+- When KAPE is executed, it duplicates the original event logs, ensuring their pristine state is preserved as evidence
+- Output: <KAPE_output_folder>\Windows\System32\winevt\logs
+  - Full of various .evtx files based on Security, Application, System, Sysmon (if activated) and more
+  - Pay attention on: event IDs, timestamps, source IPs, usernames, and other pertinent log details
+  - Identify known TTPs
+  - Correlate events from diverse log sources
+
+Windows Event Logs Parsing Using EvtxECmd (EZ-Tool)
+- EvtxECmd: a tool that can extract specific event logs or a range of events from an EVTX file, converting them into more digestible formats like JSON, XML, or CSV
+
+Maps in EvtxECmd
+- Maps transform customized data into standardized fields in the CSV (and JSON) data
+- Standard Field Maps
+  - UserName: Contains information about user and/or domain found in various event logs
+  - ExecutableInfo: Contains information about process command line, scheduled tasks etc.
+  - PayloadData1,2,3,4,5,6: Additional fields to extract and put contextual data from event logs
+  - RemoteHost: Contains information about IP address
+- EvtxECmd:
+  - Converts the unique part of an event (EventData) into a clear, human-readable format.
+  - Ensures map files are tailored to specific event logs (e.g., Security, Application, or custom logs) to handle variations in event structure.
+  - Uses the Channel element to identify which event log the map file applies to.
+    - Prevents confusion when event IDs are reused in different logs.
+- To ensure the most recent maps are in place before converting the EVTX files to CSV/JSON, run this: .\EvtxECmd.exe --sync
+
+Investigating Windows Event Logs with EQL
+- Endgame's Event Query Language (EQL): a tool for sifting through event logs, pinpointing potential security threats, and uncovering suspicious activities on Windows systems
+  - Can query and correlate events across multiple log sources, including the Windows Event Logs
+- In EQL's repository (C:\Users\johndoe\Desktop\eqllib-master), there's a PowerShell module with essential functions tailored for parsing Sysmon events from Windows Event Logs
+  - It's in the utils directory of eqllib, and is named scrape-events.ps1
+
+Windows Registry
+- Contains the computer's name, Windows version, owner's name, and network configuration
+- Registry-related files harvested from KAPE are in: <KAPE_output_folder>\Windows\System32\config
+- Registry Explorer: tool offers a streamlined interface to navigate and dissect the contents of Windows Registry hives
+
+RegRipper
+- A command-line utility adept at swiftly extracting information from the Registry
+- Has various plugins, to find run this command: .\rip.exe -l -c > rip_plugins.csv
+- To retrieve:
+  - Computer Name: .\rip.exe -r "C:\Users\johndoe\Desktop\forensic_data\kape_output\D\Windows\System32\config\SYSTEM" -p compname
+  - Timezone: .\rip.exe -r "C:\Users\johndoe\Desktop\forensic_data\kape_output\D\Windows\System32\config\SYSTEM" -p timezone
+  - Network Config: .\rip.exe -r "C:\Users\johndoe\Desktop\forensic_data\kape_output\D\Windows\System32\config\SYSTEM" -p nic2
+  - Installer Execution: .\rip.exe -r "C:\Users\johndoe\Desktop\forensic_data\kape_output\D\Windows\System32\config\SOFTWARE" -p installer
+  - Recently Accessed Folders/Docs: .\rip.exe -r "C:\Users\johndoe\Desktop\forensic_data\kape_output\D\Users\John Doe\NTUSER.DAT" -p recentdocs
+  - Autostart - Run Key Entries: .\rip.exe -r "C:\Users\johndoe\Desktop\forensic_data\kape_output\D\Users\John Doe\NTUSER.DAT" -p run
+
+Program Execution Artifacts
+- Execution Artifacts: traces and evidence left behind on a computer system or device when a program runs.
+  - Can give information on the activities and behaviors of software, users, and even those with malicious intent
+- Common Execution Artifacts
+  - Prefetch
+  - ShimCache
+  - Amcache
+  - BAM (Background Activity Moderator)
+
+Investigation of Prefetch
+- A Windows OS feature that helps optimize the loading of applications by preloading certain components and data
+- Prefetch files are created for every program that runs on Windows. both installed applications and standalone executables
+- Naming: <PROCESSNAME>.EXE-<HEX VALUE OF PATHFILE>.pf
