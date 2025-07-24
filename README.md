@@ -637,3 +637,123 @@ Autopsy - Open-Source Forensic Suite
 
 ## Rapid Triage Examination & Analysis Tools
 Tools List: https://ericzimmerman.github.io/#!index.md
+- Compileed list by Eric Zimmerman
+
+MAC(b) Times in NTFS
+- MAC(b) times: a series of timestamps linked to files or objects
+  - Could reveal chronology of events/actions
+  - Modified, Accessed, Changed, and (b) Birth times
+    - Modified Time (M)
+      - Records the last time the file's content was modified.
+      - Updates whenever the file’s data is edited.
+    - Accessed Time (A)
+      - Logs the last time the file was read or opened.
+      - Updates on file access, even without changes.
+    - Changed Time (C)
+      - Captures changes to the file's metadata or MFT record.
+      - Can update if the file is moved, copied, or renamed (especially on NTFS).
+      - May also reflect the file’s creation time, depending on the system.
+    - Birth Time (b)
+      - Indicates the exact moment the file was created on the file system.
+      - Crucial in digital forensics to verify the file’s original creation.
+      - Not always used in all filesystems
+
+General Rules for Timestamps in the Windows NTFS File System
+- Yes: actions influences timestamp
+- No: actions doesn't influence timestamp
+- File Create
+  - (M) - Yes: reflects time of file creation.
+  - (A) - Yes: reflects the time file was accessed at the time of creation.
+  - (b) - Yes: set to the time of file creation
+- File Modify
+  - (M) - Yes: reflects the time when the file's content or attributes were last modified
+  - (A) - No: not updated when the file is modified
+  - (b) - No: not updated when the file is modified.
+- File Copy
+  - (M) - No: typically not updated when a file is copied. Usually inherits the timestamp from the source file
+  - (A) - Yes: reflect when the file was accessed at the time of copying
+  - (b) - Yes: updated to the time of copying, indicating when the copy was created
+- File Access
+  - (M) - No: not updated when the file is accessed
+  - (A) - Yes: reflects the time of access
+  - (b) - No: not updated when the file is accessed
+- These timestamps are found in the $MFT file, located at the root of the system drive
+  - Either:
+    - $STANDARD_INFORMATION
+    - $FILE_NAME
+
+Timestomping Investigation
+- Timestomping: timestamp manipulation
+  - MITRE ATT&CK (T1070.006): https://attack.mitre.org/techniques/T1070/006/
+  - Obfuscate the sequence of file activities
+- Tools like MFT Explorer may output different file timestamp from file explorer
+  - Timestamps in file explorer originate from $STANDARD_INFORMATION attribute
+  - Cross-verify with the timestamps from the $FILE_NAME attribute through MFTEcmd
+- In some file systems like Windows NFTS, regular users don't have permissions to modify timestamps in $FILE_NAME
+  - Modifications done through the system kernel
+
+MFT File
+- $MFT (Master File Table): https://learn.microsoft.com/en-us/windows/win32/fileio/master-file-table
+  - Important in NFTS
+  - Organizes and catalogues files and directories on an NTFS volume
+    - Each file and directory has an entry
+  - Has granular records of file and directory activities on the system, encompassing actions like file creation, modification, deletion, and access
+  - Can retain metadata about files and directories, even post deletion from the filesystem.
+    - This makes MFT very important in forensic analysis and data recovery
+  - MFT is strategically positioned at the root of the system drive
+  - MFT records, once created, aren't discarded. Instead, new records of new files and directories are added to the MFT.
+
+Structure of MFT File Record
+- Each MFT record adheres to a structured format, with attributes and details about the associated file or directory.
+- File Components:
+  - File Record Header
+    - Contains metadata about the file record itself.
+    - Includes fields like signature, sequence number, and other administrative info.
+  - Standard Information Attribute Header
+    - Stores standard file metadata such as:
+      - Timestamps (e.g., created, modified)
+      - File attributes
+      - Security identifiers
+  - File Name Attribute Header
+    - Contains information about the filename, including:
+      - Length
+      - Namespace
+      - Unicode characters
+  - Data Attribute Header
+    - Describes how file content is stored:
+      - Resident (within the MFT) for small files
+      - Non-resident (points to external disk clusters) for larger files
+  - File Data (File Content)
+    - Holds the actual file content or references to where it's stored.
+    - Small files (<512 bytes) may be stored directly in the MFT (resident).
+    - Larger files are stored outside the MFT (non-resident).
+  - Additional Attributes (Optional)
+    - NTFS may include extra attributes like:
+      - Security descriptors (SD)
+      - Object IDs (OID)
+      - Volume name (VOLNAME)
+      - Index info, and more
+
+File Record Header
+- Includes the following information:
+  - Signature: A four-byte signature, usually "FILE" or "BAAD," indicating whether the record is in use or has been deallocated.
+  - Offset to Update Sequence Array: An offset to the Update Sequence Array (USA) that helps maintain the integrity of the record during updates.
+  - Size of Update Sequence Array: The size of the Update Sequence Array in words.
+  - Log File Sequence Number: A number that identifies the last update to the file record.
+  - Sequence Number: A number identifying the file record. The MFT records are numbered sequentially, starting from 0.
+  - Hard Link Count: The number of hard links to the file. This indicates how many directory entries point to this file record.
+  - Offset to First Attribute: An offset to the first attribute in the file record.
+- Active@ Disk Editor: https://www.disk-editor.org/index.html
+  - Freeware disk editing tool
+  - Facilitates the viewing and modification of raw disk data, including the Master File Table of an NTFS system
+
+Zone.Identifier Data in MFT File Record
+- Zone.Identifier: a specialized file metadata attribute in the Windows OS, signifies the security zone where file is sourced
+  - Part of Windows AES
+  - Determines how Windows processes files from uintrusted sources
+    - If file is from internet, Windows gives it a ZoneId with a value of '3', meaning the internet zone
+    - Starts off with 'Stream' field with 'Zone.Identifier' value
+      - To get the content of Zone.Identifier: Get-Content * -Stream Zone.Identifier -ErrorAction SilentlyContinue
+- Mark of the Web (MotW): differentiates files sourced from the internet or other potentially dubious sources from those originating from trusted or local contexts
+  - Acts as a defense layer for apps
+  - If an app opens a file with MotW, it will run a specific security measure based on MotW's presence
