@@ -886,3 +886,43 @@ PowerShell Activity
   - Repeated or Unusual Command Patterns: Look for repeated, identical, or unusual sequences of commands that may signal automation or scripted attacks.
   - Unsigned Script Execution: Flag execution of unsigned scripts, especially when policy settings are expected to restrict this behavior.
 
+### Walkthrough
+Q1. During our examination of the USN Journal within Timeline Explorer, we observed "uninstall.exe". The attacker subsequently renamed this file. Use Zone.Identifier information to determine its new name and enter it as your answer.
+- RDP to the machine
+- Run 'Timeline Explorer' and open 'MFT_backup.csv'
+- Notice that 'uninstall.exe' has a 'File Size' value of '2305902'
+- Clear out all current filters and set it to only that specific 'File Size'
+  - Set 'Extensions' to contain '.exe'
+  - Since it's just a rename, then the file size should remain the same even after rename.
+- Answer is: microsoft.windowskits.feedback.exe
+
+Q2. Review the file at "C:\Users\johndoe\Desktop\forensic_data\kape_output\D\Windows\System32\winevt\logs\Microsoft-Windows-Sysmon%4Operational.evtx" using Timeline Explorer. It documents the creation of two scheduled tasks. Enter the name of the scheduled task that begins with "M" and concludes with "r" as your answer.
+- RDP to the machine
+- Run powershell, need to convert the .evtx file to a readable format, a .csv file
+  - Change to the directory to the EvtxCmd to access it
+    - cd C:\Users\johndoe\Desktop\Get-ZimmermanTools\net6\EvtxeCmd
+  - Change the format from .evtx to .csv
+    - .\EvtxECmd.exe -f "C:\Users\johndoe\Desktop\forensic_data\kape_output\D\Windows\System32\winevt\logs\Microsoft-Windows-Sysmon%4Operational.evtx" --csv "C:\Users\johndoe\Desktop\forensic_data\event_logs\csv_timeline" --csvf Q2_event_log.csv
+- Run the Timeline Explorer
+  - Open folder in 'Desktop' directory and search for 'timeline'
+- Open the output .csv file with the Timeline Explorer
+- Run these filters:
+  - Event ID = 1
+    - This indicates procvess creation, which the automated tasks should start off with
+  - Payload Contains 'schtasks'
+    - The schtasks is an attribute for a scheduled task, will be typed out in the CMD line
+  - There should only be 2 events after filter takes effect
+- Look the 'Executable Info' column
+- Answer is: Microsoft-Windows-DiagnosticDataCollector
+
+Q3. Examine the contents of the file located at "C:\Users\johndoe\Desktop\forensic_data\APMX64\discord.apmx64" using API Monitor. "discord.exe" performed process injection against another process as well. Identify its name and enter it as your answer.
+- RDP to the machine
+- Go to the pathfile and open the file by double-clicking. It will automatically open the API Monitor
+- In the 'Monitored Processes' tab, expand the 'C\Temp\discord\discord.exe' got to 'Modules' and filter only for 'discord.exe'
+- Go to the 'Summary' tab, click the 'Find' icon and look for 'CreateProcess' keyword
+  - The first word will be an example from the lesson
+    - Look at the IpCommandLine field, this will show the process that discord.exe was trying to inject
+    - Look at the dwCreationFlags, this will have 'CREATE_SUSPENDED' value, indicating that the new process's primary thread starts in a suspended state and remains inactive until the ResumeThread function gets invoked
+    - Look at the following entries directly below it, discord.exe will be running injection related functions such as OpenProcess, VirtualAllocEx, WriteProcessMemory and CreateRemoteThread
+  - There's only one other process that has these indicators of process injection.
+- Answer is: cmdkey.exe
