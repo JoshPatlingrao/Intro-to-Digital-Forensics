@@ -1084,19 +1084,27 @@ The Actual Attack Timeline
 ### Walkthrough
 Q1. Extract and scrutinize the memory content of the suspicious PowerShell process which corresponds to PID 6744. Determine which tool from the PowerSploit repository (accessible at https://github.com/PowerShellMafia/PowerSploit) has been utilized within the process, and enter its name as your answer.
 - RDP to the machine
-- Open Powershell and list processes using windows.pstree
-  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.pstree
-  - Notice:
-    - PPID: 908
-    - ImageFileName: powershell.exe
-    - Offset(V): 0x800ae5da50c0
-    - Threads: 10
-    - Handles: -
-    - SessionsId: 1
-    - Wow64: False
-    - CreateTime: 2023-08-10 09:21:16.000000
-    - ExitTime: N/A
-- Find the CMD lines used
+- Open Powershell and find the CMD lines used
   - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.cmdline
-  - Will show that there's an encoded command being run on powershell.exe
+  - Will show that there's an encoded command being run on powershell.exe, the command was encrypted with Base64
     - "PowerShell.exe" -nop -w hidden -encodedcommand [ENCRYPTED_COMMAND_STRING]
+- Decode the Base64 string
+  - $encoded = [ENCRYPTED_COMMAND_STRING]
+    - Saves the encrypted string in the $encoded variable
+  - $decoded = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($encoded))
+    - Saves the decoding process in the $decoded, to be run later to get the decoded string
+- It will reveal the string was a GZip Compressed Data, another layer of obfuscation
+  - Extract the GZip Compressed Data and save it in a variable
+    - $gzip = [$decoded output]
+- Convert it from Base64 and decompress
+  - $bytes = [Convert]::FromBase64String($gzip)
+  - $stream = New-Object IO.MemoryStream(,$bytes)
+  - $gzipStream = New-Object IO.Compression.GzipStream($stream, [IO.Compression.CompressionMode]::Decompress)
+  - $reader = New-Object IO.StreamReader($gzipStream)
+  - $decompressedScript = $reader.ReadToEnd()
+- The '$decompressedScript' to get the true script
+- Analyze the script, there should be some keywords relating to domain and address, indicating something network related
+- Search up the tool in the repository, there should only be one word relating to 'domain'
+- Answer is: PowerView
+
+Q2. Investigate the USN Journal located at "C:\Users\johndoe\Desktop\kapefiles\ntfs\%5C%5C.%5CC%3A\$Extend\$UsnJrnl%3A$J" to determine how "advanced_ip_scanner.exe" was introduced to the compromised system. Enter the name of the associated process as your answer. Answer format: _.exe
