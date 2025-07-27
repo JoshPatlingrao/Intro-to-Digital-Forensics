@@ -926,3 +926,177 @@ Q3. Examine the contents of the file located at "C:\Users\johndoe\Desktop\forens
     - Look at the following entries directly below it, discord.exe will be running injection related functions such as OpenProcess, VirtualAllocEx, WriteProcessMemory and CreateRemoteThread
   - There's only one other process that has these indicators of process injection.
 - Answer is: cmdkey.exe
+
+## Practical Digital Forensics Scenario
+### Notes
+#### Memory Analysis with Volatility v3
+Identifying the Memory Dump's Profile
+- Get the OS & kernel details of the Windows memory sample being analyzed. Use Volatility's windows.info plugin
+  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.info
+
+Identifying Injected Code
+- Volatility's windows.malfind plugin is used to list process memory ranges that potentially contain injected code
+  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.malfind
+- When a process allocates a memory page with PAGE_EXECUTE_READWRITE permissions, it wants to run code in that memory page with the flexibility to change that code as it runs
+  - Legitimate applications typically have separate memory regions for code execution and data writing.
+    - Ensures data isn't inadvertently executed or executable regions aren't tampered with unexpectedly
+- Most malware, and those using code injection techniques, need the ability to write their payload into memory and then execute it
+- Not every instance of PAGE_EXECUTE_READWRITE is malicious, but it should be scrutinized
+
+Identifying Running Processes
+- List the processes present in this particular Windows memory image through Volatility's windows.pslist plugin
+  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.pslist
+- To list processes in a tree based on their parent process ID, it's done through Volatility's windows.pstree plugin
+  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.pstree
+
+Identifying Process Command Lines
+- Volatility's windows.cmdline plugin can provide a list of process command line arguments
+  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.cmdline
+
+Dumping Process Memory & Leveraging YARA
+- To extract all memory resident pages in a process into an individual file we can use Volatility's windows.memmap plugin
+  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.memmap --pid 3648 --dump
+- To glean more details about the process with ID 3648, we can employ YARA
+  - Use a Powershell loop to scan the process dump using all available rules of the YARA rules repository
+    - https://github.com/Neo23x0/signature-base/tree/master
+    - $rules = Get-ChildItem C:\Users\johndoe\Desktop\yara-4.3.2-2150-win64\rules | Select-Object -Property Name
+    - foreach ($rule in $rules) {C:\Users\johndoe\Desktop\yara-4.3.2-2150-win64\yara64.exe C:\Users\johndoe\Desktop\yara-4.3.2-2150-win64\rules\$($rule.Name) C:\Users\johndoe\Desktop\pid.3648.dmp}
+  - It should return hits related to the Cobalt Strike framework
+
+Identifying Loaded DLLs
+- Scrutinize the command lines, the identified arguments point to payload.dll for process 3648, with the Start function serving as a clear sign of payload.dll's execution
+  - Use Volatility's windows.dlllist plugin to gain better understanding
+    - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.dlllist --pid 3648
+  - The 'payload.dll' came from E: directory, meaning an external directory or a mounted USB
+
+Identifying Handles
+- Identify the files and registry entries accessed by the suspicious process using Volatility's windows.handles plugin
+  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.handles --pid 3648
+- When a process needs to read/write to a file, it doesn't directly interact with the file's data on the disk.
+  - The process requests the OS to open the file, and in return, the OS provides a file handle
+    - This handle is a ticket that grants the process permission to perform operations on that file.
+    - Every subsequent operation the process performs on that file is done through this handle
+    - Handles contain a lot of information for forensic analysts, will provide insights on malware behaviour, how it interacts with other files/processes
+
+Identifying Network Artifacts
+- Volatility's windows.netstat plugin can traverse network tracking structures to help analyze connection details within a memory image.
+  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.netstat
+- For a more exhaustive network analysis, use Volatility's windows.netscan plugin
+  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.netscan
+  - The suspicious process (PID 3648) has been communicating with 44.214.212.249 over port 80.
+
+#### Disk Image/Rapid Triage Data Examination & Analysis
+Searching for Keywords with Autopsy
+- Open Autopsy and access the case from C:\Users\johndoe\Desktop\MalwareAttack.
+  - Initiate a search for the payload.dll keyword, prioritizing results by their creation time
+    - Focus on Finance08062023.iso file in the Downloads directory
+    - Extract this file for subsequent scrutiny, by right-clicking and selecting Extract File(s)
+    - The file's presence in the Downloads folder and a Chrome cache file (f_000003) pointing to similar strings, it's possible that the ISO file was fetched via a browser.
+
+Identifying Web Download Information & Extracting Files with Autopsy
+- To extract web download details, we'll harness the capabilities of ADS
+  - Within Autopsy, access the Downloads directory to locate the file.
+    - The .Zone.Identifier information, due to Alternate Data Stream (ADS) file attributes, is invaluable.
+      - It reveals the file's internet origin, and pinpoint the HostUrl from which the malicious ISO was sourced.
+    - Findings from Autopsy's Web Downloads artifacts confirm that Finance08062023.iso was sourced from letsgohunt[.]site
+  - Upon mounting the extracted ISO file, it shows that it houses both a DLL and a shortcut file, which uses rundll32.exe to activate payload.dll.
+
+Extracting Cobalt Strike Beacon Configuration
+- Extract the beacon configuration via the CobaltStrikeParser script
+  - Change directory to: C:\Users\johndoe\Desktop\CobaltStrikeParser-master\CobaltStrikeParser-master
+  - python parse_beacon_config.py E:\payload.dll
+
+Identifying Persistence with Autoruns
+- For persistence mechanisms, inspect the C:\Users\johndoe\Desktop\files\johndoe_autoruns.arn file using the Autoruns tool.
+  - In the Logon section, notice the LocalSystem entry with the following details:
+    - Registry path: HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+    - Image path: C:\ProgramData\svchost.exe
+    - Timestamp: Thu Aug 10 11:25:51 2023 (this is a local timestamp, UTC: 09:25:51)
+    - Also an odd photo433.exe executable has been flagged
+      - Identify its SHA256 through Powershell or Autopsy and check it in VirusTotal website
+        - Get-FileHash -Algorithm SHA256 "C:\Users\johndoe\Desktop\kapefiles\auto\C%3A\Users\johndoe\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\photo443.exe"
+- Navigate to the Scheduled Tasks tab of the Autoruns tool, to uncover another persistence mechanism
+
+Analyzing MFT Data with Autopsy
+- Using the Autoruns tool to search for persistence, it comes across the image path C:\ProgramData\svchost.exe
+  - Use Autopsy to find this file
+- Accessing the file's metadata (File Metadata tab), pinpoint the MFT (Master File Table) attributes, which will reveal the genuine modification date, Time Stomping.
+  - There's a discrepancy when comparing the $FILE_NAME MFT Modified value with the $STANDARD_INFORMATION File Modified value
+  - $STANDARD_INFORMATION File Modified timestamp is what a user usually sees in OS file system
+  - $FILE_NAME MFT Modified holds the original timestamp, revealing the file's actual history
+
+Analyzing SRUM Data with Autopsy
+- The malicious executable had an open handle directed at the Desktop folder.
+- Through Autopsy we notice a file named users.db.
+  - The attacker might be aiming to siphon this data from the system
+- Validate the hypothesis, sift through Data Artifacts and access the Run Programs section.
+  - Focus for network metadata analysis rests on SRUDB.dat
+  - 430526981 bytes may have been exfiltrated.
+
+Analyzing Rapid Triage Data - Windows Event Logs (Chainsaw)
+- Use Chainsaw to pinpoint key events that transpired during our incident timeline
+  - chainsaw_x86_64-pc-windows-msvc.exe hunt "..\kapefiles\auto\C%3A\Windows\System32\winevt\Logs" -s sigma/ --mapping mappings/sigma-event-logs-all.yml -r rules/ --csv --output output_csv
+- Examine sigma.csv, observe the following alerts:
+  - Cobalt Strike Load by rundll32
+  - Cobalt Strike Named Pipe
+    - Pipe functionality enables covert communication between adversaries C2 servers and compromised systems
+  - UAC (User Account Control) Bypass/Privilege Escalation by Abusing fodhelper.exe
+  - LSASS Access
+  - Windows PowerShell Execution
+- Based on account_tampering.csv, a new user was created (Admin) and added to the Administrators group.
+  - Can also find evidence of this through Autopsy
+
+Analyzing Rapid Triage Data - Prefetch Files (PECmd)
+- Find the system's execution history by analyzing the prefetch files with PECmd.exe
+
+Analyzing Rapid Triage Data - USN Journal (usn.py)
+- In the USN journal identify all files that were either created or deleted during the incident.
+  - python C:\Users\johndoe\Desktop\files\USN-Journal-Parser-master\usnparser\usn.py -f C:\Users\johndoe\Desktop\kapefiles\ntfs\%5C%5C.%5CC%3A\$Extend\$UsnJrnl%3A$J -o C:\Users\johndoe\Desktop\usn_output.csv -c
+- Suspicious activities took place approximately between 2023-08-10 09:00:00 and 2023-08-10 10:00:00.
+  - View the CSV using PowerShell in alignment with our timeline
+    - $time1 = [DateTime]::ParseExact("2023-08-10 09:00:00.000000", "yyyy-MM-dd HH:mm:ss.ffffff", $null)
+    - $time2 = [DateTime]::ParseExact("2023-08-10 10:00:00.000000", "yyyy-MM-dd HH:mm:ss.ffffff", $null)
+    - Import-Csv -Path C:\Users\johndoe\Desktop\usn_output.csv | Where-Object { $_.'FileName' -match '\.exe$|\.txt$|\.msi$|\.bat$|\.ps1$|\.iso$|\.lnk$' } | Where-Object { $_.timestamp -as [DateTime] -ge $time1 -and $_.timestamp -as [DateTime] -lt $time2 }
+  - Notice that flag.txt was deleted.
+
+Analyzing Rapid Triage Data - MFT/pagefile.sys (MFTECmd/Autopsy)
+- Use MFT to try to recover flag.txt
+  - Unfortunately, the affected machine's MFT table is not available.
+  - Work on another system's MFT table where flag.txt was also deleted.
+- Run MFTEcmd to parse the $MFT file, followed by searching for flag.txt within the report
+  - C:\Users\johndoe\Desktop\Get-ZimmermanTools\net6\MFTECmd.exe -f C:\Users\johndoe\Desktop\files\mft_data --csv C:\Users\johndoe\Desktop\ --csvf mft_csv.csv
+    - Output provides the location of flag.txt on the system
+- Access the MFT file and on the Desktop, within the reports folder, the flag.txt is marked with the 'Is deleted' attribute
+  - When files are deleted from an NTFS file system volume, their MFT entries are marked as free and may be reused, but the data may remain on the disk until overwritten.
+  - In the case of the compromised system it was overwritten, but portions of its content were preserved in pagefile.sys.
+
+Constructing an Execution Timeline
+- Incident occurred between 09:13 and 09:30, use Autopsy to map out the attacker's actions chronologically.
+  - Autopsy employs Plaso (https://github.com/log2timeline/plaso)
+  - Limit event types to:
+    - Web Activity: All
+    - Other: All
+  - Set Display Times in: GMT / UTC
+    - Start: Aug 10, 2023 9:13:00 AM
+    - End: Aug 10, 2023 9:30:00 AM
+
+The Actual Attack Timeline
+### Walkthrough
+Q1. Extract and scrutinize the memory content of the suspicious PowerShell process which corresponds to PID 6744. Determine which tool from the PowerSploit repository (accessible at https://github.com/PowerShellMafia/PowerSploit) has been utilized within the process, and enter its name as your answer.
+- RDP to the machine
+- Open Powershell and list processes using windows.pstree
+  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.pstree
+  - Notice:
+    - PPID: 908
+    - ImageFileName: powershell.exe
+    - Offset(V): 0x800ae5da50c0
+    - Threads: 10
+    - Handles: -
+    - SessionsId: 1
+    - Wow64: False
+    - CreateTime: 2023-08-10 09:21:16.000000
+    - ExitTime: N/A
+- Find the CMD lines used
+  - python vol.py -q -f ..\memdump\PhysicalMemory.raw windows.cmdline
+  - Will show that there's an encoded command being run on powershell.exe
+    - "PowerShell.exe" -nop -w hidden -encodedcommand [ENCRYPTED_COMMAND_STRING]
