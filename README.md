@@ -1108,3 +1108,15 @@ Q1. Extract and scrutinize the memory content of the suspicious PowerShell proce
 - Answer is: PowerView
 
 Q2. Investigate the USN Journal located at "C:\Users\johndoe\Desktop\kapefiles\ntfs\%5C%5C.%5CC%3A\$Extend\$UsnJrnl%3A$J" to determine how "advanced_ip_scanner.exe" was introduced to the compromised system. Enter the name of the associated process as your answer. Answer format: _.exe
+- RDP to the machine
+- Run Powershell and change directory to the USN Journal
+  - cd C:\Users\johndoe\Desktop\files\USN-Journal-Parser-master\usnparser
+    - This is where the USN Journal python script is stored
+- Run the USN Journal
+  - python usn.py -f 'C:\Users\johndoe\Desktop\kapefiles\ntfs\%5C%5C.%5CC%3A\$Extend\$UsnJrnl%3A$J' -o C:\Users\johndoe\Desktop\usn_output.csv -c
+- Open the .csv file and filter for the 'advanced_ip_scanner.exe' in the FileName column
+  - There are 4 entries at line 220577 - 220580, all entries happen consecutively at 'FILE_CREATE', 'DATA_EXTEND FILE_CREATE', 'DATA_EXTEND FILE_CREATE BASIC_INFO_CHANGE' and 'DATA_EXTEND FILE_CREATE BASIC_INFO_CHANGE CLOSE', at the reason column
+  - Date & Time Range: 2023-08-10 09:20:26.465120 to 2023-08-10 09:20:26.480509
+- Run Volatility and identify the running process during that time range using windows.pslist
+  - Look for process running before the creation of 'advanced_ip_scanner.exe'
+- Answer is: rundll32.exe
