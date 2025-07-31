@@ -1120,3 +1120,49 @@ Q2. Investigate the USN Journal located at "C:\Users\johndoe\Desktop\kapefiles\n
 - Run Volatility and identify the running process during that time range using windows.pslist
   - Look for process running before the creation of 'advanced_ip_scanner.exe'
 - Answer is: rundll32.exe
+
+## Skill Assessment
+### Walkthrough
+Q1. Using VAD analysis, pinpoint the suspicious process and enter its name as your answer. Answer format: _.exe
+- RDP to the target
+- Extract one of the .zip file on Desktop: Collection-J0seph-personal_localdomain-2023-09-06T21_07_52_02_00
+- Run Powershell and change directory to the results folder after extraction
+  - cd C:\Users\Administrator\Desktop\results
+- Open the 'Windows.Packs.Persistence%2FStartup Items.json' file
+  - Get-Content "Windows.Packs.Persistence%2FStartup Items.json" | ConvertFrom-Json
+  - There will be a suspiciously named process there, indicating a reverse shell
+- Answer is: reverse.exe
+
+Q2. Determine the IP address of the C2 (Command and Control) server and enter it as your answer.
+- RDP to the target
+- Extract one of the .zip file on Desktop: Collection-J0seph-personal_localdomain-2023-09-06T21_07_52_02_00
+- Run Powershell and change directory to the results folder after extraction
+  - cd C:\Users\Administrator\Desktop\results
+- Open the 'Windows.Network.Netstat.json' file
+  - Get-Content "Windows.Network.Netstat.json" | ConvertFrom-Json
+  - This is due to the outbound C2 server communications, focus on network activity
+- Analyse the entries, focus on rundll32.exe, it will be flagged as suspicious on other logs
+  - It will be using TCP on port 80, which is insecure, the default port for HTTP traffic. This puts the TCP handshake under the risk to be hijacked.
+- Look at the Raddr IP, this is the C2 server address it's communicating to.
+- Answer is: 3.19.219.4
+  
+Q3. Determine the registry key used for persistence and enter it as your answer.
+- RDP to the target
+- Extract one of the .zip file on Desktop: Collection-J0seph-personal_localdomain-2023-09-06T21_07_52_02_00
+- Run Powershell and change directory to the results folder after extraction
+  - cd C:\Users\Administrator\Desktop\results
+- Open the 'Windows.Packs.Persistence%2FStartup Items.json' file
+  - Get-Content "Windows.Packs.Persistence%2FStartup Items.json" | ConvertFrom-Json
+  - This log focuses on persistence artifacts
+- Answer is: HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+  - This key is commonly used for persistence on Windows systems
+
+Q4. Determine the folder that contains all Mimikatz-related files and enter the full path as your answer.
+
+Q5. Determine the Microsoft Word document that j0seph recently accessed and enter its name as your answer. Answer format: _.DOCX
+- RDP to the target
+- Open the browser and run Velociraptor according to the instructions from above
+- Create a new collection, and focus on Windows.Registry.RecentDocs artifacts
+- Look at Results tab, there is only one recently accessed .DOCX file.
+  - The .DOCX files should be accessed only user 'j0seph'
+- Answer is: insurance.DOCX
