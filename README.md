@@ -1158,11 +1158,18 @@ Q3. Determine the registry key used for persistence and enter it as your answer.
   - This key is commonly used for persistence on Windows systems
 
 Q4. Determine the folder that contains all Mimikatz-related files and enter the full path as your answer.
+- RDP to the target
+- Open the browser and run Velociraptor according to the instructions from above
+- Create a new collection, and focus on Windows.Detection.BinaryRename artifacts
+  - A common obfuscation tactic, to make it difficult for defense team to detect the presence of malicious software
+- There will be an entry regarding Mimikatz
+- Answer is: C:\Users\j0seph\AppData\Local\mimik
 
 Q5. Determine the Microsoft Word document that j0seph recently accessed and enter its name as your answer. Answer format: _.DOCX
 - RDP to the target
 - Open the browser and run Velociraptor according to the instructions from above
 - Create a new collection, and focus on Windows.Registry.RecentDocs artifacts
+  - This will target artifacts regarding all users when those accounts access a file, both read and write.
 - Look at Results tab, there is only one recently accessed .DOCX file.
   - The .DOCX files should be accessed only user 'j0seph'
 - Answer is: insurance.DOCX
